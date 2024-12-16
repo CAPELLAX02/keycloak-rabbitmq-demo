@@ -1,5 +1,9 @@
 version: '3.9'
 
+networks:
+  microservice-network:
+    driver: bridge
+
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:22.0.1
@@ -13,6 +17,8 @@ services:
     ports:
       - "9098:8080"
     command: [ "start-dev", "--import-realm" ]
+    networks:
+      - microservice-network
 
   keycloak-db:
     image: postgres:15
@@ -23,6 +29,8 @@ services:
       POSTGRES_PASSWORD: keycloak
     ports:
       - "5433:5432"
+    networks:
+      - microservice-network
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -35,14 +43,18 @@ services:
     image: maildev/maildev
     container_name: maildev
     ports:
-      - "1080:80"   # MailDev UI
-      - "1025:1025" # SMTP Server
+      - "1025:1025" # SMTP Port
+      - "1080:1080" # Web UI Port
+    networks:
+      - microservice-network
 
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
+    networks:
+      - microservice-network
 
   postgres-user-service:
     image: postgres:15
@@ -53,6 +65,8 @@ services:
       POSTGRES_PASSWORD: user_service
     ports:
       - "5432:5432"
+    networks:
+      - microservice-network
 
   postgres-demo-service:
     image: postgres:15
@@ -63,3 +77,5 @@ services:
       POSTGRES_PASSWORD: demo_service
     ports:
       - "5434:5432"
+    networks:
+      - microservice-network
