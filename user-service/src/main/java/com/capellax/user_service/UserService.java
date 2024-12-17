@@ -94,6 +94,7 @@ public class UserService {
 
             User dbUser = new User();
             dbUser.setKeycloakId(keycloakId);
+            dbUser.setUsername(userData.get("username").toString());
             dbUser.setFirstName((String) userData.get("firstName"));
             dbUser.setLastName((String) userData.get("lastName"));
             dbUser.setEmail((String) userData.get("email"));
@@ -113,6 +114,18 @@ public class UserService {
 
     private String generateActivationCode() {
         return String.format("%06d", new Random().nextInt(999999));
+    }
+
+    public UserProfileResponse getUserProfileByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+
+        return new UserProfileResponse(
+                user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail()
+        );
     }
 
 }
