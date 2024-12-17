@@ -2,7 +2,6 @@ package com.capellax.user_service;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,16 +17,15 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(
-            @Validated @RequestBody RegisterRequest request
-    ) {
-        try {
-            User user = userService.registerUser(request);
-            return ResponseEntity.ok("User registered successfully. Activation code sent: " + user.getActivationCode());
-
-        } catch (RuntimeException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        }
+    public ResponseEntity<String> registerUser(@RequestBody RegisterRequest request) {
+        String message = userService.createUser(
+                request.getUsername(),
+                request.getFirstName(),
+                request.getLastName(),
+                request.getEmail(),
+                request.getPassword()
+        );
+        return ResponseEntity.ok(message);
     }
 
 }

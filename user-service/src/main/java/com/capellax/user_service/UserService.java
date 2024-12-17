@@ -1,41 +1,50 @@
 package com.capellax.user_service;
 
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.core.Response;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import java.util.Collections;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final Keycloak keycloak;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, Keycloak keycloak) {
         this.userRepository = userRepository;
+        this.keycloak = keycloak;
     }
 
-    @Transactional
-    public User registerUser(RegisterRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already exists");
+    public String createUser(String username, String firstName, String lastName, String email, String password) {
+        UsersResource usersResource = keycloak.realm("demo-realm").users();
+
+        UserRepresentation user = new UserRepresentation();
+        user.setUsername(username);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+        user.setEmail(email);
+        user.setEnabled(true);
+
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(password);
+        credential.setTemporary(false);
+
+        user.setCredentials(Collections.singletonList(credential));
+
+        Response response = usersResource.create(user);
+
+        if (response.getStatus() == 201) {
+            return "User created successfully!";
+        } else {
+            throw new RuntimeException("Failed to create user. Status: " + response.getStatus());
         }
-
-        String keycloakId = UUID.randomUUID().toString();
-        String activationCode = generateActivationCode();
-
-        User user = new User();
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword());
-        user.setKeycloakId(keycloakId);
-        user.setActivationCode(activationCode);
-
-        return userRepository.save(user);
-    }
-
-    private String generateActivationCode() {
-        return String.valueOf((int) (Math.random() * 900000) + 100000);
     }
 
 }
