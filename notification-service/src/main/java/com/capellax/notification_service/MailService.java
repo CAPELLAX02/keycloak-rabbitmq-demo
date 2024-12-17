@@ -2,6 +2,7 @@ package com.capellax.notification_service;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,9 @@ public class MailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+
+    @Value("${sender-email}")
+    private String senderEmail;
 
     public MailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
         this.mailSender = mailSender;
@@ -30,6 +34,7 @@ public class MailService {
 
         String content = templateEngine.process("activation-email", context);
 
+        helper.setFrom(senderEmail);
         helper.setTo(to);
         helper.setSubject("Account Activation Code");
         helper.setText(content, true);

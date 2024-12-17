@@ -10,9 +10,14 @@ import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.util.*;
@@ -26,6 +31,18 @@ public class UserService {
     private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
     private final RabbitTemplate rabbitTemplate;
+
+    @Value("${keycloak.login.token-url}")
+    private String keycloakLoginUrl;
+
+    @Value("${keycloak.login.grant_type}")
+    private String keycloakLoginGrantType;
+
+    @Value("${keycloak.login.client_id}")
+    private String keycloakLoginClientId;
+
+    @Value("${keycloak.login.client_secret}")
+    private String keycloakLoginClientSecret;
 
     public UserService(UserRepository userRepository, Keycloak keycloak, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, PasswordEncoder passwordEncoder, RabbitTemplate rabbitTemplate) {
         this.userRepository = userRepository;
@@ -146,5 +163,29 @@ public class UserService {
                 user.getEmail()
         );
     }
+
+    public Map<String, Object> loginUser(LoginRequest loginRequest) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+            requestBody.add("grant_type", keycloakLoginGrantType);
+            requestBody.add("client_id", keycloakLoginClientId);
+            requestBody.add("client_secret", keycloakLoginClientSecret);
+            requestBody.add("username", loginRequest.getUsername());
+            requestBody.add("password", loginRequest.getPassword());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(keycloakLoginUrl, HttpMethod.POST, requestEntity, Map.class);
+
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("Login failed: " + e.getMessage());
+        }
+    }
+
 
 }

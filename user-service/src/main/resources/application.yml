@@ -46,9 +46,18 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
+keycloak:
+  login:
+    token-url: "http://localhost:9098/realms/demo-realm/protocol/openid-connect/token"
+    grant_type: "password"
+    client_id: "user-service-admin-client"
+    client_secret: "HyUxpNxIm9hNGouTlzpK7z3b2on2TIYn"
+
 logging:
   level:
     root: INFO
     com.capellax.user_service: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
+    org.springframework.web: DEBUG
+    org.springframework.http: DEBUG
