@@ -9,6 +9,7 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,36 +25,54 @@ public class UserService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
+    private final RabbitTemplate rabbitTemplate;
 
-    public UserService(UserRepository userRepository, Keycloak keycloak, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, Keycloak keycloak, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, PasswordEncoder passwordEncoder, RabbitTemplate rabbitTemplate) {
         this.userRepository = userRepository;
         this.keycloak = keycloak;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.passwordEncoder = passwordEncoder;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public String registerUser(RegisterRequest request) {
         String activationCode = generateActivationCode();
+        saveUserToRedis(request, activationCode);
 
-        Map<String, Object> userData = new HashMap<>();
-        userData.put("id", UUID.randomUUID().toString());
-        userData.put("username", request.getUsername());
-        userData.put("firstName", request.getFirstName());
-        userData.put("lastName", request.getLastName());
-        userData.put("email", request.getEmail());
-        userData.put("password", request.getPassword());
-        userData.put("activationCode", activationCode);
+        Map<String, String> message = new HashMap<>();
+        message.put("email", request.getEmail());
+        message.put("firstName", request.getFirstName());
+        message.put("lastName", request.getLastName());
+        message.put("activationCode", activationCode);
 
         try {
-            redisTemplate.opsForValue().set(request.getEmail(), objectMapper.writeValueAsString(userData), Duration.ofMinutes(10));
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            rabbitTemplate.convertAndSend("activation-queue", jsonMessage);
 
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Error serializing user data to Redis", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send message to RabbitMQ", e);
         }
-
-        System.out.println("Activation Code for " + request.getEmail() + ": " + activationCode);
         return "User registered successfully. Check your email for the activation code.";
+    }
+
+    private void saveUserToRedis(RegisterRequest request, String activationCode) {
+        try {
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", UUID.randomUUID().toString());
+            userData.put("username", request.getUsername());
+            userData.put("firstName", request.getFirstName());
+            userData.put("lastName", request.getLastName());
+            userData.put("email", request.getEmail());
+            userData.put("password", request.getPassword());
+            userData.put("activationCode", activationCode);
+
+            redisTemplate.opsForValue().set(request.getEmail(),
+                    objectMapper.writeValueAsString(userData),
+                    Duration.ofMinutes(10));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error saving user data to Redis", e);
+        }
     }
 
     @Transactional
